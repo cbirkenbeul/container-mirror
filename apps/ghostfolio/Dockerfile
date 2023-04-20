@@ -1,0 +1,1 @@
+FROM docker.io/ghostfolio/ghostfolio:1.257.0

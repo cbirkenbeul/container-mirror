@@ -1,0 +1,1 @@
+FROM docker.io/dpage/pgadmin4:7.0

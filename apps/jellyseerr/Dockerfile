@@ -1,0 +1,1 @@
+FROM docker.io/fallenbagel/jellyseerr:1.4.1
