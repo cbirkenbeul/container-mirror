@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths: ["apps/**"]
+
+env:
+  IMAGE_REGISTRY: ghcr.io
+
+jobs:
+  changed-files:
+    name: Generate Build Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Generate Token
+        uses: tibdex/github-app-token@b62528385c34dbc9f38e5f4225ac829252d1ea92 # v1.8.0
+        id: generate-token
+        with:
+          app_id: "${{ secrets.BOT_APP_ID }}"
+          private_key: "${{ secrets.BOT_APP_PRIVATE_KEY }}"
+
+      - name: Checkout
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          token: "${{ steps.generate-token.outputs.token }}"
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@7ecfc6730dff8072d1cc5215a24cc9478f55264d # v35.8.0
+        with:
+          dir_names: true
+          dir_names_max_depth: 2
+          json: true
+          files: |
+            apps/**
+
+      - name: List all changed files
+        run: |
+          echo '${{ steps.changed-files.outputs.all_changed_files }}'
+
+      - id: set-matrix
+        run: echo "matrix={\"container\":${{ steps.changed-files.outputs.all_changed_files }}}" >> "${GITHUB_OUTPUT}"
+
+  push:
+    name: Push
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      id-token: write
+    needs: [changed-files]
+    strategy:
+      matrix: ${{ fromJSON(needs.changed-files.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+
+      - name: Prepare
+        id: prep
+        run: |
+          container_name=$(basename ${{ matrix.container }})
+          echo "container-name=${container_name}" >> "${GITHUB_OUTPUT}"
+
+          container_image=$(head -1 ./apps/${container_name}/Dockerfile | sed 's/^FROM //')
+          container_version=$(cut -d':' -f2 <<< "${container_image}")
+          if [[ "${container_version}" == *sha256 ]]; then
+              container_version=$(cut -d'@' -f1 <<< "${container_version}")
+          fi
+          echo "container-version=${container_version}" >> "${GITHUB_OUTPUT}"
+
+          container_platform=$(cat ./apps/${container_name}/PLATFORM)
+          echo "container-platform=${container_platform}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@e81a89b1732b9c48d79cd809d8d81d79c4647a18 # v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # renovate: tag=v2.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
+
+      - name: Build and Push
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        with:
+          build-args: VERSION=${{ steps.prep.outputs.container-version }}
+          context: .
+          platforms: ${{ steps.prep.outputs.container-platform }}
+          file: ./apps/${{ steps.prep.outputs.container-name }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_REGISTRY }}/${{ github.repository_owner }}/${{ steps.prep.outputs.container-name }}:${{ steps.prep.outputs.container-version }}

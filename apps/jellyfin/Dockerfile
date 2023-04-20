@@ -1,0 +1,1 @@
+FROM docker.io/jellyfin/jellyfin:10.8.9
