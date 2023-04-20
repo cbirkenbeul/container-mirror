@@ -1,1 +1,1 @@
-FROM docker.io/fallenbagel/jellyseerr:1.4.1
+FROM docker.io/fallenbagel/jellyseerr:1.5.0
