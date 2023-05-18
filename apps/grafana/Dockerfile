@@ -1,2 +1,3 @@
 ARG GF_INSTALL_IMAGE_RENDERER_PLUGIN="true"
-FROM grafana/grafana:9.5.2
+ARG GRAFANA_VERSION=9.5.2
+FROM grafana/grafana
