@@ -1,1 +1,1 @@
-FROM docker.io/ghostfolio/ghostfolio:1.280.1
+FROM docker.io/ghostfolio/ghostfolio:1.282.0
