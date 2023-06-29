@@ -1,1 +1,1 @@
-FROM docker.io/dpage/pgadmin4:7.3
+FROM docker.io/dpage/pgadmin4:7.4
